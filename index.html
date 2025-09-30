@@ -5,27 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Buscador por escuela</title>
   <style>
-    :root {
-      --bg:#0b1020; --card:#111834; --ink:#e8ebff; --muted:#9aa4d6; --accent:#6aa6ff; --danger:#ff6a6a;
-    }
+    :root { --bg:#0b1020; --card:#111834; --ink:#e8ebff; --muted:#9aa4d6; --accent:#6aa6ff; --danger:#ff6a6a; }
     *{box-sizing:border-box}
-    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--ink)}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans";
+         background:var(--bg); color:var(--ink)}
     .wrap{max-width:900px; margin:40px auto; padding:0 16px}
-    .card{background:var(--card); border:1px solid rgba(255,255,255,.08); padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .card{background:var(--card); border:1px solid rgba(255,255,255,.08); padding:20px; border-radius:16px;
+          box-shadow:0 10px 30px rgba(0,0,0,.25)}
     h1{font-size:clamp(22px,3.5vw,34px); margin:0 0 10px}
     .row{display:flex; gap:10px; flex-wrap:wrap; margin:18px 0}
-    input[type="text"]{flex:1 1 280px; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#0f1630; color:var(--ink); font-size:16px}
-    button{padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:var(--accent); color:#061026; font-weight:700; cursor:pointer}
+    input[type="text"]{flex:1 1 280px; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
+                       background:#0f1630; color:var(--ink); font-size:16px}
+    button{padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
+           background:var(--accent); color:#061026; font-weight:700; cursor:pointer}
     .hint{font-size:13px; color:var(--muted)}
     .result{margin-top:16px; padding:16px; border-radius:12px; background:#0f1734; border:1px dashed rgba(255,255,255,.15)}
-    .big{font-size:22px; font-weight:800}
     table{width:100%; border-collapse:collapse; margin-top:10px}
     th, td{padding:10px 8px; border-bottom:1px solid rgba(255,255,255,.08)}
     th{text-align:left; color:var(--muted); font-weight:600}
-    .badge{display:inline-block; padding:.2rem .55rem; border-radius:999px; background:rgba(106,166,255,.18); color:#cfe1ff; border:1px solid rgba(106,166,255,.35); font-size:12px; font-weight:700}
+    .badge{display:inline-block; padding:.2rem .55rem; border-radius:999px; background:rgba(106,166,255,.18);
+           color:#cfe1ff; border:1px solid rgba(106,166,255,.35); font-size:12px; font-weight:700}
     .err{color:var(--danger)}
-    #status{display:none; margin-top:10px}
-    #status.show{display:block}
+    #status{margin-top:10px}
+    .muted{color:var(--muted); font-size:12px}
+    .diag{margin-top:8px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:12px; color:#b9c8ff}
   </style>
 </head>
 <body>
@@ -39,37 +42,39 @@
       </div>
       <div class="hint">Podés escribir parcialmente. Ignora mayúsculas/acentos.</div>
 
-      <div id="status" class="hint"></div>
+      <div id="status" class="hint">Cargando datos…</div>
+      <div id="diag" class="diag"></div>
       <div id="out" class="result" hidden></div>
     </div>
   </div>
 
   <script>
   "use strict";
-  const PUBLISHED_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_4zkKxaJUS2idXU_ANJ7Yi7xiscy3IUoEVoCxiNEdFHc_VqVUpX8UTG_31wP49kgkmRyJyUetg6z9/pub?gid=1584081133&single=true&output=csv";
+
+  // ⚠️ Asegurate de que este enlace esté "Publicado en la web" (Archivo → Compartir → Publicar en la web).
+  const PUBLISHED_CSV_URL =
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_4zkKxaJUS2idXU_ANJ7Yi7xiscy3IUoEVoCxiNEdFHc_VqVUpX8UTG_31wP49kgkmRyJyUetg6z9/pub?gid=1584081133&single=true&output=csv";
 
   const $ = sel => document.querySelector(sel);
-  const status = (msg, type="") => {
-    const el = $("#status");
-    el.className = type ? `${type} hint show` : "hint";
-    el.textContent = msg;
-    if (msg) el.classList.add("show"); else el.classList.remove("show");
-  };
+  const setStatus = (msg, isErr=false) => { $("#status").textContent = msg; $("#status").className = isErr ? "hint err" : "hint"; };
+  const setDiag = msg => { $("#diag").textContent = msg || ""; };
 
+  // Normalización sin regex raras: saca acentos, baja a minúsculas, compacta espacios.
   function normalize(str){
     return (str||"")
       .toString()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")       // quita acentos
-      .replace(/[^\p{L}\p{N}\s\.\-]/gu, " ") // deja letras, números, espacios, punto y guión
-      .replace(/\s+/g, " ")
+      .replace(/[\u0300-\u036f]/g, "")   // quita diacríticos (áéíóú -> aeiou, deja ñ)
+      .replace(/[^\S\r\n]+/g, " ")       // espacios múltiples -> uno (sin tocar \n)
       .trim()
       .toLowerCase();
   }
 
+  // Parser CSV robusto: comillas, comillas escapadas, \n y \r\n
   function parseCSV(text){
     const rows = [];
     let cur = "", row = [], inQuotes = false;
+
     for (let i=0; i<text.length; i++){
       const c = text[i], n = text[i+1];
       if (c === '"'){
@@ -79,39 +84,57 @@
         row.push(cur); cur = "";
       } else if ((c === '\n' || c === '\r') && !inQuotes){
         if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
-        row=[]; cur="";
-        if (c === '\r' && n === '\n') i++; // saltear \n después de \r
+        row = []; cur = "";
+        if (c === '\r' && n === '\n') i++; // saltar \n de \r\n
       } else {
         cur += c;
       }
     }
     if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
-    return rows.filter(r=>r.length>0);
+    return rows;
   }
 
   async function fetchData(){
     try{
-      status("Cargando datos…");
+      setStatus("Cargando datos…");
       const res = await fetch(PUBLISHED_CSV_URL, { cache: "no-store" });
-      if(!res.ok) throw new Error("No pude leer el CSV publicado");
-      const csv = await res.text();
-      const rows = parseCSV(csv);
-      let start = 0;
-      if (rows.length && rows[0].length >= 2){
-        const h0 = rows[0][0]||"", h1 = rows[0][1]||"";
-        if (/escuela/i.test(h0) || /zona/i.test(h1)) start = 1;
+      const statusLine = `HTTP ${res.status} ${res.statusText}`;
+      const text = await res.text();
+
+      // Diagnóstico visible
+      const looksHTML = /^\s*</.test(text.slice(0, 20));
+      setDiag(`${statusLine} · bytes: ${text.length} · ${looksHTML ? "contenido parece HTML (¿no publicado?)" : "contenido parece CSV"}`);
+
+      if (!res.ok) throw new Error(`No pude leer el CSV publicado (${statusLine})`);
+
+      if (looksHTML) {
+        // Google devuelve HTML si el doc no está "publicado en la web".
+        throw new Error("El enlace no devuelve CSV: probablemente no está 'Publicado en la web'.");
       }
-      const body = rows.slice(start);
-      const data = body.map(r => ({
+
+      const rows = parseCSV(text);
+      if (!rows.length) throw new Error("CSV vacío o no parseable.");
+
+      // Saltear encabezado si detecta títulos
+      let start = 0;
+      if (rows[0] && rows[0].length >= 2) {
+        const h0 = (rows[0][0]||"").toLowerCase();
+        const h1 = (rows[0][1]||"").toLowerCase();
+        if (h0.includes("escuela") || h1.includes("zona")) start = 1;
+      }
+
+      const data = rows.slice(start).map(r => ({
         escuela: (r[0]||"").trim(),
         zona: (r[1]||"").trim()
       })).filter(r => r.escuela && r.zona);
-      if (!data.length) throw new Error("No encontré datos válidos en el CSV.");
-      status(`Datos listos: ${data.length} registros.`);
+
+      if (!data.length) throw new Error("No encontré filas válidas (ver columnas 1: escuela, 2: zona).");
+
+      setStatus(`Datos listos: ${data.length} registros.`);
       return data;
     }catch(err){
       console.error(err);
-      status("⚠️ Error cargando datos. Revisá que el enlace público siga activo.", "err");
+      setStatus("⚠️ Error cargando datos: " + err.message, true);
       return [];
     }
   }
@@ -123,7 +146,9 @@
       out.innerHTML = `<div class="err"><strong>Sin coincidencias</strong> para "${query}".</div>`;
       return;
     }
-    const rows = matches.slice(0, 50).map(m => `<tr><td>${m.escuela}</td><td><span class="badge">${m.zona}</span></td></tr>`).join("");
+    const rows = matches.slice(0, 100).map(m =>
+      `<tr><td>${m.escuela}</td><td><span class="badge">${m.zona}</span></td></tr>`
+    ).join("");
     out.innerHTML = `
       <div><strong>${matches.length}</strong> resultado(s)</div>
       <table aria-label="Resultados">
@@ -151,7 +176,7 @@
 
   function doSearch(){
     const q = $("#q").value;
-    if(!search){ status("Todavía estoy cargando…"); return; }
+    if(!search){ setStatus("Todavía estoy cargando…", true); return; }
     const matches = search(q);
     renderResult(matches, q);
   }
