@@ -9,7 +9,7 @@
       --bg:#0b1020; --card:#111834; --ink:#e8ebff; --muted:#9aa4d6; --accent:#6aa6ff; --danger:#ff6a6a;
     }
     *{box-sizing:border-box}
-    body{margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; background:var(--bg); color:var(--ink)}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans"; background:var(--bg); color:var(--ink)}
     .wrap{max-width:900px; margin:40px auto; padding:0 16px}
     .card{background:var(--card); border:1px solid rgba(255,255,255,.08); padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
     h1{font-size:clamp(22px,3.5vw,34px); margin:0 0 10px}
@@ -60,9 +60,9 @@
     return (str||"")
       .toString()
       .normalize("NFD")
-      .replace(/[\\u0300-\\u036f]/g, "")
-      .replace(/[^\\p{L}\\p{N}\\s\\.\\-]/gu, " ")
-      .replace(/\\s+/g, " ")
+      .replace(/[\u0300-\u036f]/g, "")       // quita acentos
+      .replace(/[^\p{L}\p{N}\s\.\-]/gu, " ") // deja letras, números, espacios, punto y guión
+      .replace(/\s+/g, " ")
       .trim()
       .toLowerCase();
   }
@@ -75,16 +75,23 @@
       if (c === '"'){
         if (inQuotes && n === '"'){ cur += '"'; i++; }
         else { inQuotes = !inQuotes; }
-      } else if (c === ',' && !inQuotes){ row.push(cur); cur = ""; }
-      else if ((c === '\\n' || c === '\\r') && !inQuotes){ if(cur!==""||row.length){ row.push(cur); rows.push(row); row=[]; cur=""; } }
-      else { cur += c; }
+      } else if (c === ',' && !inQuotes){
+        row.push(cur); cur = "";
+      } else if ((c === '\n' || c === '\r') && !inQuotes){
+        if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
+        row=[]; cur="";
+        if (c === '\r' && n === '\n') i++; // saltear \n después de \r
+      } else {
+        cur += c;
+      }
     }
-    if (cur!=="" || row.length) { row.push(cur); rows.push(row); }
+    if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
     return rows.filter(r=>r.length>0);
   }
 
   async function fetchData(){
     try{
+      status("Cargando datos…");
       const res = await fetch(PUBLISHED_CSV_URL, { cache: "no-store" });
       if(!res.ok) throw new Error("No pude leer el CSV publicado");
       const csv = await res.text();
@@ -100,6 +107,7 @@
         zona: (r[1]||"").trim()
       })).filter(r => r.escuela && r.zona);
       if (!data.length) throw new Error("No encontré datos válidos en el CSV.");
+      status(`Datos listos: ${data.length} registros.`);
       return data;
     }catch(err){
       console.error(err);
@@ -143,7 +151,7 @@
 
   function doSearch(){
     const q = $("#q").value;
-    if(!search){ status("Todavía estoy cargando…", ""); return; }
+    if(!search){ status("Todavía estoy cargando…"); return; }
     const matches = search(q);
     renderResult(matches, q);
   }
