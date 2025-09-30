@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Buscador de Escuela → Zona</title>
+  <title>Buscador por escuela</title>
   <style>
     :root {
       --bg:#0b1020; --card:#111834; --ink:#e8ebff; --muted:#9aa4d6; --accent:#6aa6ff; --danger:#ff6a6a;
@@ -35,8 +35,8 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>Buscador de <span class="badge">Escuela → Zona</span></h1>
-      <p>Cargá el nombre de la escuela y te digo a qué zona pertenece. Los datos salen de tu Google Sheet (pestaña <code>ZONAS</code>).</p>
+      <h1>Buscador por escuela</h1>
+      <!-- Se quitó el párrafo de origen de datos -->
 
       <div class="row">
         <input id="q" type="text" placeholder="Ej.: Escuela N° 123 Manuel Belgrano" autocomplete="off" />
@@ -47,15 +47,12 @@
       <div id="status" class="hint" style="margin-top:10px"></div>
       <div id="out" class="result" hidden></div>
 
-      <div class="footer">
-        <strong>Estado:</strong> Ya quedó conectado a tu planilla publicada (pestaña <code>ZONAS</code>). Para actualizar, solo editá el Sheet; se refleja solo.<br>
-        Si cambiás la publicación o la pestaña, reemplazá la constante <code>PUBLISHED_CSV_URL</code> por el nuevo link <em>pub?output=csv</em>.
-      </div>
+      <!-- Se quitó el bloque de 'Estado' del pie -->
     </div>
   </div>
 
   <script>
-    // ✅ Config: URL del CSV publicado de tu planilla (pestaña ZONAS)
+    // URL del CSV publicado (pestaña ZONAS)
     const PUBLISHED_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_4zkKxaJUS2idXU_ANJ7Yi7xiscy3IUoEVoCxiNEdFHc_VqVUpX8UTG_31wP49kgkmRyJyUetg6z9/pub?gid=1584081133&single=true&output=csv";
 
     const $ = (sel)=>document.querySelector(sel);
@@ -90,7 +87,8 @@
 
     async function fetchData(){
       try{
-        status("Cargando datos de la planilla publicada…");
+        // Mostramos solo mensaje de carga y de error, no el 'ok'
+        status("Cargando datos…");
         const res = await fetch(PUBLISHED_CSV_URL);
         if(!res.ok) throw new Error("No pude leer el CSV publicado");
         const csv = await res.text();
@@ -101,11 +99,12 @@
         const data = body
           .map(r => ({ escuela: (r[0]||"").trim(), zona: (r[1]||"").trim() }))
           .filter(r => r.escuela && r.zona);
-        status(`Datos cargados: ${data.length} escuelas (pestaña: ZONAS).`, "ok");
+        // Limpiar el estado (no mostrar 'Datos cargados: ...')
+        status("");
         return data;
       }catch(err){
         console.error(err);
-        status("⚠️ No pude cargar la planilla publicada. Revisá que el enlace esté público y activo.", "err");
+        status("⚠️ No pude cargar los datos. Revisá que el enlace esté público y activo.", "err");
         return [];
       }
     }
@@ -167,7 +166,7 @@
 
     function doSearch(){
       const q = $("#q").value;
-      if(!search){ status("Aún no terminé de cargar la planilla…", "err"); return; }
+      if(!search){ status("Todavía estoy cargando…", "hint"); return; }
       const matches = search(q);
       renderResult(matches, q);
     }
