@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Buscador de Escuela → Zona</title>
+  <style>
+    :root {
+      --bg:#0b1020; --card:#111834; --ink:#e8ebff; --muted:#9aa4d6; --accent:#6aa6ff; --danger:#ff6a6a;
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji"; background:var(--bg); color:var(--ink)}
+    .wrap{max-width:900px; margin:40px auto; padding:0 16px}
+    .card{background:var(--card); border:1px solid rgba(255,255,255,.08); padding:20px; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    h1{font-size:clamp(22px,3.5vw,34px); margin:0 0 10px}
+    p{color:var(--muted); margin-top:6px}
+    .row{display:flex; gap:10px; flex-wrap:wrap; margin:18px 0}
+    input[type="text"]{flex:1 1 280px; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#0f1630; color:var(--ink); font-size:16px}
+    button{padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:var(--accent); color:#061026; font-weight:700; cursor:pointer}
+    button:disabled{opacity:.6; cursor:not-allowed}
+    .hint{font-size:13px; color:var(--muted)}
+    .result{margin-top:16px; padding:16px; border-radius:12px; background:#0f1734; border:1px dashed rgba(255,255,255,.15)}
+    .big{font-size:22px; font-weight:800}
+    table{width:100%; border-collapse:collapse; margin-top:10px}
+    th, td{padding:10px 8px; border-bottom:1px solid rgba(255,255,255,.08)}
+    th{text-align:left; color:var(--muted); font-weight:600}
+    .badge{display:inline-block; padding:.2rem .55rem; border-radius:999px; background:rgba(106,166,255,.18); color:#cfe1ff; border:1px solid rgba(106,166,255,.35); font-size:12px; font-weight:700}
+    .err{color:var(--danger)}
+    .ok{color:#b7ffb7}
+    .footer{margin-top:18px; font-size:12px; color:var(--muted)}
+    a{color:#bcd6ff}
+    code{background:#0e1430; padding:2px 6px; border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Buscador de <span class="badge">Escuela → Zona</span></h1>
+      <p>Cargá el nombre de la escuela y te digo a qué zona pertenece. Los datos salen de tu Google Sheet (pestaña <code>ZONAS</code>).</p>
+
+      <div class="row">
+        <input id="q" type="text" placeholder="Ej.: Escuela N° 123 Manuel Belgrano" autocomplete="off" />
+        <button id="btn">Buscar</button>
+      </div>
+      <div class="hint">Sugerencia: podés escribir parcialmente. No hace falta acentos exactos; yo los normalizo.</div>
+
+      <div id="status" class="hint" style="margin-top:10px"></div>
+      <div id="out" class="result" hidden></div>
+
+      <div class="footer">
+        <strong>Estado:</strong> Ya quedó conectado a tu planilla publicada (pestaña <code>ZONAS</code>). Para actualizar, solo editá el Sheet; se refleja solo.<br>
+        Si cambiás la publicación o la pestaña, reemplazá la constante <code>PUBLISHED_CSV_URL</code> por el nuevo link <em>pub?output=csv</em>.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ✅ Config: URL del CSV publicado de tu planilla (pestaña ZONAS)
+    const PUBLISHED_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_4zkKxaJUS2idXU_ANJ7Yi7xiscy3IUoEVoCxiNEdFHc_VqVUpX8UTG_31wP49kgkmRyJyUetg6z9/pub?gid=1584081133&single=true&output=csv";
+
+    const $ = (sel)=>document.querySelector(sel);
+    const status = (msg, cls="")=>{ const el = $("#status"); el.className = `hint ${cls}`; el.textContent = msg; };
+
+    function normalize(str){
+      return (str||"")
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\p{L}\p{N}\s\.\-]/gu, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+
+    function parseCSV(text){
+      const rows = [];
+      let cur = "", row = [], inQuotes = false;
+      for (let i=0; i<text.length; i++){
+        const c = text[i], n = text[i+1];
+        if (c === '"'){
+          if (inQuotes && n === '"'){ cur += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (c === ',' && !inQuotes){ row.push(cur); cur = ""; }
+        else if ((c === '\n' || c === '\r') && !inQuotes){ if(cur!==""||row.length){ row.push(cur); rows.push(row); row=[]; cur=""; } }
+        else { cur += c; }
+      }
+      if (cur!=="" || row.length) { row.push(cur); rows.push(row); }
+      return rows.filter(r=>r.length>0);
+    }
+
+    async function fetchData(){
+      try{
+        status("Cargando datos de la planilla publicada…");
+        const res = await fetch(PUBLISHED_CSV_URL);
+        if(!res.ok) throw new Error("No pude leer el CSV publicado");
+        const csv = await res.text();
+        const rows = parseCSV(csv);
+        const [h0="", h1=""] = rows[0] || [];
+        const hasHeader = /escuela/i.test(h0) && /zona/i.test(h1);
+        const body = hasHeader ? rows.slice(1) : rows;
+        const data = body
+          .map(r => ({ escuela: (r[0]||"").trim(), zona: (r[1]||"").trim() }))
+          .filter(r => r.escuela && r.zona);
+        status(`Datos cargados: ${data.length} escuelas (pestaña: ZONAS).`, "ok");
+        return data;
+      }catch(err){
+        console.error(err);
+        status("⚠️ No pude cargar la planilla publicada. Revisá que el enlace esté público y activo.", "err");
+        return [];
+      }
+    }
+
+    function renderResult(matches, query){
+      const out = $("#out");
+      out.hidden = false;
+      const qn = normalize(query);
+
+      if(matches.length === 0){
+        out.innerHTML = `<div class="err"><strong>Sin coincidencias</strong> para "${query}". Probá con otra palabra clave o revisá la ortografía.</div>`;
+        return;
+      }
+
+      const exact = matches.filter(m => normalize(m.escuela) === qn);
+      if(exact.length === 1){
+        const { escuela, zona } = exact[0];
+        out.innerHTML = `
+          <div class="big">✅ <strong>${escuela}</strong> pertenece a la zona: <span class="badge">${zona}</span></div>
+          <div class="hint" style="margin-top:8px">También encontré ${matches.length-1} posible(s) parecido(s) abajo.</div>
+        `;
+      } else if(matches.length === 1){
+        const { escuela, zona } = matches[0];
+        out.innerHTML = `
+          <div class="big">✅ <strong>${escuela}</strong> pertenece a la zona: <span class="badge">${zona}</span></div>
+        `;
+      } else {
+        out.innerHTML = `<div><strong>${matches.length}</strong> resultados que coinciden con "${query}":</div>`;
+      }
+
+      const top = matches.slice(0, 50);
+      const rows = top.map(m => `<tr><td>${m.escuela}</td><td><span class="badge">${m.zona}</span></td></tr>`).join("");
+      out.innerHTML += `
+        <table aria-label="Resultados">
+          <thead><tr><th>Escuela</th><th>Zona</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    }
+
+    function makeSearcher(data){
+      const idx = data.map(r => ({ ...r, key: normalize(r.escuela) }));
+      return function search(q){
+        const qn = normalize(q);
+        if(!qn) return [];
+        return idx.filter(r => r.key.includes(qn));
+      }
+    }
+
+    let search = null;
+
+    (async function init(){
+      try {
+        const data = await fetchData();
+        search = makeSearcher(data);
+      } catch(err){
+        console.error(err);
+      }
+    })();
+
+    function doSearch(){
+      const q = $("#q").value;
+      if(!search){ status("Aún no terminé de cargar la planilla…", "err"); return; }
+      const matches = search(q);
+      renderResult(matches, q);
+    }
+
+    $("#btn").addEventListener("click", doSearch);
+    $("#q").addEventListener("keydown", e => { if(e.key === "Enter") doSearch(); });
+  </script>
+</body>
+</html>
