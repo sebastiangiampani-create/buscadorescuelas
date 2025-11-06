@@ -1,188 +1,257 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Buscador por escuela</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Buscador Talleres de Diseño</title>
   <style>
-    :root { --bg:#0b1020; --card:#111834; --ink:#e8ebff; --muted:#9aa4d6; --accent:#6aa6ff; --danger:#ff6a6a; }
-    *{box-sizing:border-box}
-    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,"Noto Sans";
-         background:var(--bg); color:var(--ink)}
-    .wrap{max-width:900px; margin:40px auto; padding:0 16px}
-    .card{background:var(--card); border:1px solid rgba(255,255,255,.08); padding:20px; border-radius:16px;
-          box-shadow:0 10px 30px rgba(0,0,0,.25)}
-    h1{font-size:clamp(22px,3.5vw,34px); margin:0 0 10px}
-    .row{display:flex; gap:10px; flex-wrap:wrap; margin:18px 0}
-    input[type="text"]{flex:1 1 280px; padding:14px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
-                       background:#0f1630; color:var(--ink); font-size:16px}
-    button{padding:12px 16px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
-           background:var(--accent); color:#061026; font-weight:700; cursor:pointer}
-    .hint{font-size:13px; color:var(--muted)}
-    .result{margin-top:16px; padding:16px; border-radius:12px; background:#0f1734; border:1px dashed rgba(255,255,255,.15)}
-    table{width:100%; border-collapse:collapse; margin-top:10px}
-    th, td{padding:10px 8px; border-bottom:1px solid rgba(255,255,255,.08)}
-    th{text-align:left; color:var(--muted); font-weight:600}
-    .badge{display:inline-block; padding:.2rem .55rem; border-radius:999px; background:rgba(106,166,255,.18);
-           color:#cfe1ff; border:1px solid rgba(106,166,255,.35); font-size:12px; font-weight:700}
-    .err{color:var(--danger)}
-    #status{margin-top:10px}
-    .muted{color:var(--muted); font-size:12px}
-    .diag{margin-top:8px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:12px; color:#b9c8ff}
+    :root { --gap: 12px; }
+    body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial; margin:24px; background:#fff}
+    .wrap{max-width:1000px;margin:0 auto}
+    .header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+    .logo{height:48px;width:auto;display:block}
+    .title{font-size:24px;margin:0;line-height:1.15}
+    .card{padding:20px;border:1px solid #e7e7e7;border-radius:12px;background:#fff}
+    .row{display:flex;gap:var(--gap);flex-wrap:wrap;margin-bottom:var(--gap)}
+    label{font-size:14px;color:#333}
+    select,button{padding:10px 12px;font-size:16px}
+    button{cursor:pointer}
+    .muted{color:#666;font-size:14px}
+    .hr{height:1px;background:#eee;margin:16px 0}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .chip{border:1px solid #ddd;border-radius:999px;padding:6px 10px}
+    .meta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .counter{font-weight:600;border:1px solid #ddd;border-radius:8px;padding:6px 10px}
   </style>
 </head>
 <body>
   <div class="wrap">
+    <!-- Header con logo a la izquierda -->
+    <div class="header">
+      <img src="logo.png" alt="Logo" class="logo"/>
+      <h1 class="title">Buscador Talleres de Diseño</h1>
+    </div>
+
     <div class="card">
-      <h1>Buscador por escuela</h1>
+      <p class="muted">Elegí primero la <b>Escuela</b>, después el <b>Día</b>, luego el <b>Horario</b>. Te mostramos las <b>Comisiones</b> disponibles.</p>
 
       <div class="row">
-        <input id="q" type="text" placeholder="Escribí el nombre de la escuela" autocomplete="off" />
-        <button id="btn">Buscar</button>
+        <div>
+          <label for="escuela">Escuela</label><br/>
+          <select id="escuela" disabled>
+            <option value="">(Elegí escuela)</option>
+          </select>
+        </div>
+        <div>
+          <label for="dia">Día</label><br/>
+          <select id="dia" disabled>
+            <option value="">(Elegí día)</option>
+          </select>
+        </div>
+        <div>
+          <label for="horario">Horario</label><br/>
+          <select id="horario" disabled>
+            <option value="">(Elegí horario)</option>
+          </select>
+        </div>
+        <div style="align-self:end;">
+          <button id="limpiar" disabled>Limpiar</button>
+        </div>
       </div>
-      <div class="hint">Podés escribir parcialmente. Ignora mayúsculas/acentos.</div>
 
-      <div id="status" class="hint">Cargando datos…</div>
-      <div id="diag" class="diag"></div>
-      <div id="out" class="result" hidden></div>
+      <div class="meta">
+        <div id="status" class="muted">Cargando datos…</div>
+        <!-- Contador de comisiones/aulas -->
+        <div id="contador" class="counter" aria-live="polite">Comisiones: 0</div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div>
+        <div class="muted">Comisiones coincidentes:</div>
+        <div id="comisiones" class="chips" aria-live="polite"></div>
+      </div>
     </div>
   </div>
 
   <script>
-  "use strict";
+    // === CSV público publicado por vos ===
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQgHmSCDyof2tEKeRp77d9vnBhpQvAbVfy1NDqDE_Q9CvvGVaObzWLEjnjRYlJCJhVPTDR8fwckvu4D/pub?output=csv";
 
-  // ⚠️ Asegurate de que este enlace esté "Publicado en la web" (Archivo → Compartir → Publicar en la web).
-  const PUBLISHED_CSV_URL =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vS_4zkKxaJUS2idXU_ANJ7Yi7xiscy3IUoEVoCxiNEdFHc_VqVUpX8UTG_31wP49kgkmRyJyUetg6z9/pub?gid=1584081133&single=true&output=csv";
+    // Helpers
+    const normalize = s => String(s||"").toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
 
-  const $ = sel => document.querySelector(sel);
-  const setStatus = (msg, isErr=false) => { $("#status").textContent = msg; $("#status").className = isErr ? "hint err" : "hint"; };
-  const setDiag = msg => { $("#diag").textContent = msg || ""; };
-
-  // Normalización sin regex raras: saca acentos, baja a minúsculas, compacta espacios.
-  function normalize(str){
-    return (str||"")
-      .toString()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")   // quita diacríticos (áéíóú -> aeiou, deja ñ)
-      .replace(/[^\S\r\n]+/g, " ")       // espacios múltiples -> uno (sin tocar \n)
-      .trim()
-      .toLowerCase();
-  }
-
-  // Parser CSV robusto: comillas, comillas escapadas, \n y \r\n
-  function parseCSV(text){
-    const rows = [];
-    let cur = "", row = [], inQuotes = false;
-
-    for (let i=0; i<text.length; i++){
-      const c = text[i], n = text[i+1];
-      if (c === '"'){
-        if (inQuotes && n === '"'){ cur += '"'; i++; }
-        else { inQuotes = !inQuotes; }
-      } else if (c === ',' && !inQuotes){
-        row.push(cur); cur = "";
-      } else if ((c === '\n' || c === '\r') && !inQuotes){
-        if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
-        row = []; cur = "";
-        if (c === '\r' && n === '\n') i++; // saltar \n de \r\n
-      } else {
-        cur += c;
+    // CSV parser básico con comillas dobles
+    function parseCSV(text) {
+      const rows = [];
+      let row = [], val = "", inQuotes = false;
+      for (let i=0; i<text.length; i++) {
+        const c = text[i], n = text[i+1];
+        if (c === '"') {
+          if (inQuotes && n === '"') { val += '"'; i++; }
+          else inQuotes = !inQuotes;
+        } else if (c === ',' && !inQuotes) {
+          row.push(val); val = "";
+        } else if ((c === '\n' || c === '\r') && !inQuotes) {
+          if (val !== "" || row.length) { row.push(val); rows.push(row); row = []; val = ""; }
+        } else {
+          val += c;
+        }
       }
+      if (val !== "" || row.length) row.push(val), rows.push(row);
+      return rows;
     }
-    if (cur!=="" || row.length){ row.push(cur); rows.push(row); }
-    return rows;
-  }
 
-  async function fetchData(){
-    try{
-      setStatus("Cargando datos…");
-      const res = await fetch(PUBLISHED_CSV_URL, { cache: "no-store" });
-      const statusLine = `HTTP ${res.status} ${res.statusText}`;
-      const text = await res.text();
+    const uniq = arr => Array.from(new Set(arr.filter(v => v!==undefined && v!==null && String(v).trim()!=="")));
 
-      // Diagnóstico visible
-      const looksHTML = /^\s*</.test(text.slice(0, 20));
-      setDiag(`${statusLine} · bytes: ${text.length} · ${looksHTML ? "contenido parece HTML (¿no publicado?)" : "contenido parece CSV"}`);
+    // Estado
+    let HEADERS=[], ROWS=[];
+    let H_ESC=null, H_DIA=null, H_HOR=null, H_COM=null;
 
-      if (!res.ok) throw new Error(`No pude leer el CSV publicado (${statusLine})`);
+    // UI refs
+    const $escuela = document.getElementById('escuela');
+    const $dia     = document.getElementById('dia');
+    const $horario = document.getElementById('horario');
+    const $status  = document.getElementById('status');
+    const $comis   = document.getElementById('comisiones');
+    const $limpiar = document.getElementById('limpiar');
+    const $contador = document.getElementById('contador');
 
-      if (looksHTML) {
-        // Google devuelve HTML si el doc no está "publicado en la web".
-        throw new Error("El enlace no devuelve CSV: probablemente no está 'Publicado en la web'.");
+    // Carga inicial
+    (async function init(){
+      try{
+        const res = await fetch(CSV_URL, { cache: "no-store" });
+        const text = await res.text();
+        const raw = parseCSV(text);
+        if (!raw.length) throw new Error("CSV vacío");
+
+        HEADERS = raw[0].map(h => String(h).trim());
+        const byNorm = new Map(HEADERS.map(h => [normalize(h), h]));
+
+        // Detectar encabezados (acepta variantes con y sin tilde)
+        H_ESC = byNorm.get('escuela') || byNorm.get('escuelas') || null;
+        H_DIA = byNorm.get('dia') || byNorm.get('día') || null;
+        H_HOR = byNorm.get('horario') || byNorm.get('turno') || null;
+        H_COM = byNorm.get('comision') || byNorm.get('comisión') || null;
+
+        if (!H_ESC || !H_DIA || !H_HOR || !H_COM) {
+          throw new Error("Encabezados requeridos no encontrados. Se esperan: Escuela, DIA, HORARIO, COMISION.");
+        }
+
+        ROWS = raw.slice(1).map(r => {
+          const o={};
+          HEADERS.forEach((h,i)=>o[h]=r[i]);
+          return o;
+        });
+
+        // Poblar ESCUELA
+        const escuelas = uniq(ROWS.map(r => String(r[H_ESC]).trim())).sort();
+        for (const e of escuelas) {
+          const opt = document.createElement('option'); opt.value=e; opt.textContent=e; $escuela.appendChild(opt);
+        }
+        $escuela.disabled = false;
+        $limpiar.disabled = false;
+        $status.textContent = "Listo. Elegí escuela.";
+      }catch(err){
+        console.error(err);
+        $status.textContent = "No pude leer el CSV o faltan encabezados. Revisá permisos/columnas.";
+      }
+    })();
+
+    // Reseteo parcial de selects y UI
+    function resetDiaHorario() {
+      $dia.innerHTML = '<option value="">(Elegí día)</option>';
+      $horario.innerHTML = '<option value="">(Elegí horario)</option>';
+      $dia.disabled = true; $horario.disabled = true;
+      $comis.innerHTML = "";
+      updateCounter(0);
+    }
+
+    function updateCounter(n) {
+      $contador.textContent = `Comisiones: ${n}`;
+    }
+
+    // Cascada: Escuela -> Día
+    $escuela.addEventListener('change', () => {
+      resetDiaHorario();
+      const esc = $escuela.value.trim();
+      if (!esc) { $status.textContent = "Elegí escuela."; return; }
+
+      const dias = uniq(
+        ROWS.filter(r => String(r[H_ESC]).trim() === esc)
+            .map(r => String(r[H_DIA]).trim())
+      ).sort();
+
+      for (const d of dias) {
+        const opt=document.createElement('option'); opt.value=d; opt.textContent=d; $dia.appendChild(opt);
+      }
+      $dia.disabled = false;
+      $status.textContent = "Elegí día.";
+    });
+
+    // Cascada: Día -> Horario
+    $dia.addEventListener('change', () => {
+      $horario.innerHTML = '<option value="">(Elegí horario)</option>';
+      $horario.disabled = true;
+      $comis.innerHTML = "";
+      updateCounter(0);
+
+      const esc = $escuela.value.trim();
+      const dia = $dia.value.trim();
+      if (!esc || !dia) { $status.textContent = "Elegí escuela y día."; return; }
+
+      const horarios = uniq(
+        ROWS.filter(r => String(r[H_ESC]).trim() === esc && String(r[H_DIA]).trim() === dia)
+            .map(r => String(r[H_HOR]).trim())
+      ).sort();
+
+      for (const h of horarios) {
+        const opt=document.createElement('option'); opt.value=h; opt.textContent=h; $horario.appendChild(opt);
+      }
+      $horario.disabled = false;
+      $status.textContent = "Elegí horario.";
+    });
+
+    // Resultado: mostrar COMISION(ES) y contar
+    $horario.addEventListener('change', () => {
+      $comis.innerHTML = "";
+
+      const esc = $escuela.value.trim();
+      const dia = $dia.value.trim();
+      const hor = $horario.value.trim();
+      if (!esc || !dia || !hor) { $status.textContent = "Completá los 3 filtros."; updateCounter(0); return; }
+
+      const comisiones = uniq(
+        ROWS.filter(r =>
+          String(r[H_ESC]).trim() === esc &&
+          String(r[H_DIA]).trim() === dia &&
+          String(r[H_HOR]).trim() === hor
+        ).map(r => String(r[H_COM]).trim())
+      ).sort();
+
+      if (!comisiones.length) {
+        $status.textContent = "Sin comisiones para esa combinación.";
+        updateCounter(0);
+        return;
       }
 
-      const rows = parseCSV(text);
-      if (!rows.length) throw new Error("CSV vacío o no parseable.");
-
-      // Saltear encabezado si detecta títulos
-      let start = 0;
-      if (rows[0] && rows[0].length >= 2) {
-        const h0 = (rows[0][0]||"").toLowerCase();
-        const h1 = (rows[0][1]||"").toLowerCase();
-        if (h0.includes("escuela") || h1.includes("zona")) start = 1;
+      for (const c of comisiones) {
+        const div = document.createElement('div');
+        div.className = 'chip';
+        div.textContent = c;
+        $comis.appendChild(div);
       }
+      updateCounter(comisiones.length);
+      $status.textContent = `Listo: ${comisiones.length} comisión(es) encontrada(s).`;
+    });
 
-      const data = rows.slice(start).map(r => ({
-        escuela: (r[0]||"").trim(),
-        zona: (r[1]||"").trim()
-      })).filter(r => r.escuela && r.zona);
-
-      if (!data.length) throw new Error("No encontré filas válidas (ver columnas 1: escuela, 2: zona).");
-
-      setStatus(`Datos listos: ${data.length} registros.`);
-      return data;
-    }catch(err){
-      console.error(err);
-      setStatus("⚠️ Error cargando datos: " + err.message, true);
-      return [];
-    }
-  }
-
-  function renderResult(matches, query){
-    const out = $("#out");
-    out.hidden = false;
-    if(!matches.length){
-      out.innerHTML = `<div class="err"><strong>Sin coincidencias</strong> para "${query}".</div>`;
-      return;
-    }
-    const rows = matches.slice(0, 100).map(m =>
-      `<tr><td>${m.escuela}</td><td><span class="badge">${m.zona}</span></td></tr>`
-    ).join("");
-    out.innerHTML = `
-      <div><strong>${matches.length}</strong> resultado(s)</div>
-      <table aria-label="Resultados">
-        <thead><tr><th>Escuela</th><th>Zona</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-  }
-
-  function makeSearcher(data){
-    const idx = data.map(r => ({ ...r, key: normalize(r.escuela) }));
-    return function search(q){
-      const qn = normalize(q);
-      if(!qn) return [];
-      return idx.filter(r => r.key.includes(qn));
-    }
-  }
-
-  let search = null;
-
-  (async function init(){
-    const data = await fetchData();
-    if (!data.length){ return; }
-    search = makeSearcher(data);
-  })();
-
-  function doSearch(){
-    const q = $("#q").value;
-    if(!search){ setStatus("Todavía estoy cargando…", true); return; }
-    const matches = search(q);
-    renderResult(matches, q);
-  }
-
-  $("#btn").addEventListener("click", doSearch);
-  $("#q").addEventListener("keydown", e => { if(e.key === "Enter") doSearch(); });
+    // Limpiar todo
+    $limpiar.addEventListener('click', () => {
+      $escuela.value = "";
+      resetDiaHorario();
+      $status.textContent = "Elegí escuela.";
+    });
   </script>
 </body>
 </html>
